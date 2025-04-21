@@ -1,0 +1,43 @@
+name: Deploy and Rollback
+
+on:
+  push:
+    branches:
+      - main  # Trigger on pushes to the main branch
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout the repository
+        uses: actions/checkout@v3
+
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy to VPS
+        run: |
+          ssh -i ~/.ssh/id_rsa ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << 'EOF'
+            cd ${{ secrets.DEPLOY_DIR }}
+            git pull origin main  # Pull the latest code
+            composer install       # Install dependencies
+            php artisan migrate    # Run migrations
+            # You can add any deployment commands here (e.g. building assets)
+          EOF
+
+      - name: Rollback if deployment fails
+        if: failure()  # Run this step if the deployment fails
+        run: |
+          echo "Deployment failed, rolling back to previous commit"
+          ssh -i ~/.ssh/id_rsa ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << 'EOF'
+            cd ${{ secrets.DEPLOY_DIR }}
+            git reset --hard HEAD~1  # Rollback to previous commit
+            git clean -f -d  # Remove untracked files or directories
+            composer install  # Install dependencies again
+            php artisan migrate:rollback --step=1  # Optionally rollback migrations
+          EOF
