@@ -20,14 +20,17 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Deploy to VPS
+      - name: Deploy to VPS using rsync
         run: |
+          rsync -avz --exclude='.git' --exclude='storage/' --exclude='.env' \
+            -e "ssh -i ~/.ssh/id_rsa" ./ ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:${{ secrets.DEPLOY_DIR }}
+
+          # SSH into VPS to install dependencies and run migrations
           ssh -i ~/.ssh/id_rsa ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << 'EOF'
             cd ${{ secrets.DEPLOY_DIR }}
-            git pull origin main  # Pull the latest code
             composer install       # Install dependencies
             php artisan migrate    # Run migrations
-            # You can add any deployment commands here (e.g. building assets)
+            # You can add any other commands needed for deployment
           EOF
 
       - name: Rollback if deployment fails
