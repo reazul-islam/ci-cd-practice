@@ -1,4 +1,4 @@
-name: Deploy Hello World with rsync
+name: Deploy Hello World using SCP
 
 on:
   push:
@@ -13,9 +13,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Install rsync
-        run: sudo apt-get update && sudo apt-get install -y rsync
-
       - name: Set up SSH key
         run: |
           mkdir -p ~/.ssh
@@ -23,10 +20,6 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Deploy using rsync
+      - name: Deploy using SCP
         run: |
-          /usr/bin/rsync -avz --delete \
-            --exclude='.env' \
-            --exclude='uploads/' \
-            -e "ssh -i ~/.ssh/id_rsa" \
-            ./ ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:${{ secrets.DEPLOY_DIR }}
+          scp -r -i ~/.ssh/id_rsa ./ ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:${{ secrets.DEPLOY_DIR }}
